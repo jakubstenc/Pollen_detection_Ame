@@ -4,3 +4,4 @@ pandas
 ultralytics
 jupyterlab
 shapely
+sahi
