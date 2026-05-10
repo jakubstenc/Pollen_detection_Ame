@@ -85,6 +85,13 @@ def generate_report():
         except Exception as e:
             print(f"Failed to generate markdown table from CSV: {e}")
             
+        md_content += f"## 🎥 Real-Time Live Camera Tracking\n\n"
+        md_content += f"You can bypass static images and run the system directly on a live camera stream! It runs inference directly on the video frames and dynamically snaps the mathematical grid into place.\n\n"
+        md_content += f"To run the live stream from your terminal:\n"
+        md_content += f"```bash\npython src/live_counter.py --camera 0 --model runs/pollen_nano_test-3/weights/best.pt\n```\n"
+        md_content += f"*(Change `--camera 0` to a specific index or RTSP stream URL depending on your microscope setup).* \n\n"
+        md_content += f"**Live Features**:\n- **`q`** : Quit the live stream.\n- **`g`** : Force an instant re-calculation of the mathematical grid.\n\n"
+        
         # Add visual results gallery
         vis_images = glob.glob(os.path.join(results_dir, "visualized_*.JPG")) + glob.glob(os.path.join(results_dir, "visualized_*.jpg"))
         for vis_src in vis_images:
