@@ -3,15 +3,18 @@ import numpy as np
 import os
 from shapely.geometry import Polygon
 
-def detect_grid_squares(image_path, min_square_area=1000, max_square_area=10000000, debug=False):
+def detect_grid_squares(image_source, min_square_area=1000, max_square_area=10000000, debug=False):
     """
     Detects the Bürker chamber counting grid using a High-Pass Thin-Strip Template Matching algorithm.
     By using thin strips and a high-pass filter, it avoids rotation smear and perfectly isolates the grid lines 
     from dense pollen clusters.
     """
-    img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError(f"Could not read image: {image_path}")
+    if isinstance(image_source, str):
+        img = cv2.imread(image_source)
+        if img is None:
+            raise ValueError(f"Could not read image: {image_source}")
+    else:
+        img = image_source.copy()
         
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
@@ -123,9 +126,13 @@ def detect_grid_squares(image_path, min_square_area=1000, max_square_area=100000
                         cv2.rectangle(vis_img, (int(sx1), int(sy1)), (int(sx2), int(sy2)), (255, 0, 0), 4)
 
     if debug:
-        base_name = os.path.basename(image_path)
-        name, ext = os.path.splitext(base_name)
-        out_path = os.path.join(os.path.dirname(image_path), f"{name}_grid{ext}")
+        if isinstance(image_source, str):
+            base_name = os.path.basename(image_source)
+            name, ext = os.path.splitext(base_name)
+            out_path = os.path.join(os.path.dirname(image_source), f"{name}_grid{ext}")
+        else:
+            out_path = "debug_live_grid.jpg"
+            
         cv2.imwrite(out_path, vis_img)
         print(f"Debug grid image saved to: {out_path}")
         

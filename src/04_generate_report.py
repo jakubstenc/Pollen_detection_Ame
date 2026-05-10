@@ -55,6 +55,25 @@ def generate_report():
         md_content += f"## {title}\n"
         md_content += f"![{title}](assets/{filename})\n\n"
         
+    # Add automated counting results section
+    results_dir = os.path.join(project_root, "data", "results")
+    csv_src = os.path.join(results_dir, "pollen_counts.csv")
+    csv_filename = "pollen_counts.csv"
+    
+    if os.path.exists(csv_src):
+        shutil.copy2(csv_src, os.path.join(assets_dir, csv_filename))
+        md_content += f"\n## Automated Pollen Counting Results\n\n"
+        md_content += f"The Bürker grid has been automatically aligned and pollen counted according to the counting protocol.\n\n"
+        md_content += f"**📥 [Download Raw Data CSV (pollen_counts.csv)](assets/{csv_filename})**\n\n"
+        
+        # Add visual results gallery
+        vis_images = glob.glob(os.path.join(results_dir, "visualized_*.JPG")) + glob.glob(os.path.join(results_dir, "visualized_*.jpg"))
+        for vis_src in vis_images:
+            vis_filename = os.path.basename(vis_src)
+            shutil.copy2(vis_src, os.path.join(assets_dir, vis_filename))
+            md_content += f"### {vis_filename}\n"
+            md_content += f"![{vis_filename}](assets/{vis_filename})\n\n"
+            
     md_path = os.path.join(docs_dir, "index.md")
     with open(md_path, "w") as f:
         f.write(md_content)
