@@ -33,5 +33,13 @@ def main():
     print("\nTraining completed!")
     print(f"Your best model weights are saved at: {os.path.join(project_root, 'runs', 'pollen_nano_test', 'weights', 'best.pt')}")
 
+    # Generate the automated documentation report
+    print("\nGenerating performance report...")
+    try:
+        from generate_report import generate_report
+        generate_report()
+    except Exception as e:
+        print(f"Failed to generate report: {e}")
+
 if __name__ == "__main__":
     main()
