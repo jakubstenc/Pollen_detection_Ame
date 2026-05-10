@@ -69,9 +69,35 @@ def visualize_raw_image(image_path, model_path, output_dir):
         cy = bbox.miny + (bbox.maxy - bbox.miny) / 2
         centroid = Point(cx, cy)
         
+        from shapely.geometry import LineString
+        
+        pollen_box = Polygon([
+            (bbox.minx, bbox.miny),
+            (bbox.maxx, bbox.miny),
+            (bbox.maxx, bbox.maxy),
+            (bbox.minx, bbox.maxy)
+        ])
+        
         in_grid = False
         for square in grid_polygons:
-            if square.contains(centroid):
+            sq_minx, sq_miny, sq_maxx, sq_maxy = square.bounds
+            
+            # Define the 4 geometric edges of the counting square
+            top_edge = LineString([(sq_minx, sq_miny), (sq_maxx, sq_miny)])
+            bottom_edge = LineString([(sq_minx, sq_maxy), (sq_maxx, sq_maxy)])
+            left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
+            right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
+            
+            # Hemocytometer counting protocol:
+            counted_in_this_square = False
+            if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
+                counted_in_this_square = False  # Touching bottom/left -> DO NOT COUNT
+            elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
+                counted_in_this_square = True   # Touching top/right -> DO COUNT
+            elif square.contains(centroid):
+                counted_in_this_square = True   # Strictly inside -> DO COUNT
+                
+            if counted_in_this_square:
                 in_grid = True
                 break
                 

@@ -1,9 +1,22 @@
 import os
 import sys
-import cv2
-import pandas as pd
-from ultralytics import YOLO
-from shapely.geometry import Point, Polygon
+
+try:
+    import cv2
+    import pandas as pd
+    from ultralytics import YOLO
+    from shapely.geometry import Point, Polygon
+except ModuleNotFoundError as e:
+    print("\n" + "="*80)
+    print("🚨 ERROR: YOU CLICKED THE 'PLAY/RUN' BUTTON IN YOUR CODE EDITOR! 🚨")
+    print("="*80)
+    print(f"Missing module: {e}")
+    print("\nYour code editor is ignoring our 'venv' virtual environment and using the system Python.")
+    print("PLEASE DO NOT CLICK THE PLAY BUTTON!")
+    print("\nInstead, open the Terminal window at the bottom of your screen and type exactly this:")
+    print("python src/live_counter.py --image data/tiles_640/your_tile_name.jpg --model runs/pollen_nano_test-3/weights/best.pt")
+    print("="*80 + "\n")
+    sys.exit(1)
 import importlib.util
 
 from line_detector import detect_grid_squares
@@ -48,16 +61,42 @@ def process_image(image_path, model_path, output_dir):
         masks = result.masks.xy # Coordinates of polygons
         boxes = result.boxes    # Bounding boxes
         
+        from shapely.geometry import LineString
+        
         for mask_pts, box in zip(masks, boxes):
-            # Calculate centroid of the bounding box
-            x1, y1, x2, y2 = box.xyxy[0].tolist()
-            cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+            # Calculate bounds of the bounding box
+            minx, miny, maxx, maxy = box.xyxy[0].tolist()
+            cx = minx + (maxx - minx) / 2
+            cy = miny + (maxy - miny) / 2
             centroid = Point(cx, cy)
             
-            # Check if this centroid falls inside ANY of the detected grid squares
+            pollen_box = Polygon([
+                (minx, miny),
+                (maxx, miny),
+                (maxx, maxy),
+                (minx, maxy)
+            ])
+            
             in_grid = False
             for square in grid_polygons:
-                if square.contains(centroid):
+                sq_minx, sq_miny, sq_maxx, sq_maxy = square.bounds
+                
+                # Define the 4 geometric edges of the counting square
+                top_edge = LineString([(sq_minx, sq_miny), (sq_maxx, sq_miny)])
+                bottom_edge = LineString([(sq_minx, sq_maxy), (sq_maxx, sq_maxy)])
+                left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
+                right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
+                
+                # Hemocytometer counting protocol:
+                counted_in_this_square = False
+                if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
+                    counted_in_this_square = False  # Touching bottom/left -> DO NOT COUNT
+                elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
+                    counted_in_this_square = True   # Touching top/right -> DO COUNT
+                elif square.contains(centroid):
+                    counted_in_this_square = True   # Strictly inside -> DO COUNT
+                    
+                if counted_in_this_square:
                     in_grid = True
                     break
             

@@ -40,8 +40,8 @@ def detect_grid_squares(image_path, min_square_area=10000, debug=False):
         elif 80 < angle < 100:
             verticals.append(x1)
             
-    # Remove duplicates that are too close to each other
-    def merge_nearby(lines_arr, threshold=20):
+    # Remove duplicates or closely spaced triple-lines
+    def merge_nearby(lines_arr, threshold):
         if not lines_arr: return []
         lines_arr = sorted(lines_arr)
         merged = [lines_arr[0]]
@@ -50,8 +50,11 @@ def detect_grid_squares(image_path, min_square_area=10000, debug=False):
                 merged.append(val)
         return merged
         
-    horizontals = merge_nearby(horizontals)
-    verticals = merge_nearby(verticals)
+    # Scale merge threshold based on image dimensions
+    # A 640x640 tile has triple lines ~20px apart. A 4000px raw image has them ~120px apart.
+    merge_threshold = max(20, int(img.shape[1] * (20.0 / 640.0)))
+    horizontals = merge_nearby(horizontals, threshold=merge_threshold)
+    verticals = merge_nearby(verticals, threshold=merge_threshold)
     
     # Form polygons from the grid intersections
     polygons = []
@@ -65,7 +68,7 @@ def detect_grid_squares(image_path, min_square_area=10000, debug=False):
             # Create a box
             area = abs((y2 - y1) * (x2 - x1))
             if area > min_square_area:
-                # Top-left, Top-right, Bottom-right, Bottom-left
+                # Store coordinates specifically as (x_min, y_min, x_max, y_max)
                 poly = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
                 polygons.append(poly)
                 
