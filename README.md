@@ -5,6 +5,8 @@ This project aims to automatically count pollen grains on a Bürker chamber usin
 ## Directory Structure
 - `data/raw_images/`: Original 5MB Canon JPGs.
 - `data/tiles_640/`: Sliced 640x640 images for Roboflow labeling.
+- `data/hard_negatives/`: Images containing tricky artifacts (like background debris) to help the model learn what NOT to detect.
+- `data/roboflow_export/`: The .zip files and extracted datasets downloaded from Roboflow for training.
 - `data/test_images/`: Separated images for final testing.
 - `notebooks/`: Jupyter notebooks for experimentation.
 - `src/`: Python scripts.
