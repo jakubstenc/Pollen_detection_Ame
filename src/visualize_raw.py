@@ -106,9 +106,9 @@ def visualize_raw_image(image_path, model_path, output_dir):
                 right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
                 
                 counted_in_this_square = False
-                if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
+                if pollen_box.intersects(bottom_edge) or pollen_box.intersects(right_edge):
                     counted_in_this_square = False
-                elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
+                elif pollen_box.intersects(top_edge) or pollen_box.intersects(left_edge):
                     counted_in_this_square = True
                 elif square.contains(centroid):
                     counted_in_this_square = True

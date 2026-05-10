@@ -70,10 +70,10 @@ def process_frame(frame, model, macro_grids):
                     left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
                     right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
                     
-                    if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
+                    if pollen_box.intersects(bottom_edge) or pollen_box.intersects(right_edge):
                         is_counted = False
                         break
-                    elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
+                    elif pollen_box.intersects(top_edge) or pollen_box.intersects(left_edge):
                         is_counted = True
                         assigned_label = label
                         break

@@ -121,10 +121,10 @@ def process_batch(image_dir, model_path, output_dir):
                         bottom_line = Polygon([coords[2], coords[3], coords[3], coords[2]]).buffer(1)
                         left_line = Polygon([coords[3], coords[0], coords[0], coords[3]]).buffer(1)
                         
-                        if pollen_poly.intersects(bottom_line) or pollen_poly.intersects(left_line):
+                        if pollen_poly.intersects(bottom_line) or pollen_poly.intersects(right_line):
                             is_counted = False
                             break
-                        elif pollen_poly.intersects(top_line) or pollen_poly.intersects(right_line):
+                        elif pollen_poly.intersects(top_line) or pollen_poly.intersects(left_line):
                             is_counted = True
                             assigned_label = label
                             break

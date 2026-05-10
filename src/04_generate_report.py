@@ -63,7 +63,8 @@ def generate_report():
     if os.path.exists(csv_src):
         shutil.copy2(csv_src, os.path.join(assets_dir, csv_filename))
         md_content += f"\n## Automated Pollen Counting Results\n\n"
-        md_content += f"The Bürker grid has been automatically aligned and pollen counted according to the counting protocol across all 9 macro-squares.\n\n"
+        md_content += f"The Bürker grid has been automatically aligned and pollen counted according to the standard **Hemocytometer L-Rule (North/West)**.\n\n"
+        md_content += f"> [!NOTE]\n> **Counting Protocol**:\n> - **Counted (Green)**: Pollen inside the square OR touching the **Top (North)** or **Left (West)** boundaries.\n> - **Ignored (Red)**: Pollen touching the **Bottom (South)** or **Right (East)** boundaries.\n\n"
         md_content += f"**📥 [Download Raw Data CSV (pollen_counts.csv)](assets/{csv_filename})**\n\n"
         
         # Read CSV and build a Markdown table
