@@ -31,7 +31,9 @@ def main():
     )
     
     print("\nTraining completed!")
-    print(f"Your best model weights are saved at: {os.path.join(project_root, 'runs', 'pollen_nano_test', 'weights', 'best.pt')}")
+    # The model variable has the actual save directory
+    save_dir = model.trainer.save_dir if hasattr(model, 'trainer') else os.path.join(project_root, 'runs', 'pollen_nano_test')
+    print(f"Your best model weights are saved at: {os.path.join(save_dir, 'weights', 'best.pt')}")
 
     # Generate the automated documentation report
     print("\nGenerating performance report...")
