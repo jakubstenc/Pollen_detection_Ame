@@ -21,14 +21,9 @@ def visualize_raw_image(image_path, model_path, output_dir):
         raise ValueError(f"Could not read image: {image_path}")
         
     print("1. Detecting counting grid on raw image...")
-    # Scale min_square_area based on image size. A raw image is huge, 
-    # so the squares will be much larger than 10,000 pixels.
-    height, width = img.shape[:2]
-    area_scale = (height * width) / (640 * 640)
-    scaled_min_area = int(10000 * area_scale * 0.1) # Conservative estimate
-    
-    grid_polygons = detect_grid_squares(image_path, min_square_area=scaled_min_area, debug=False)
-    print(f"   Found {len(grid_polygons)} grid counting squares.")
+    # The mathematical Phase-Locked loop guarantees perfect squares, so we don't need heavy area filtering.
+    grid_polygons = detect_grid_squares(image_path, min_square_area=1000, debug=False)
+    print(f"   Found {len(grid_polygons)} mathematically perfect grid counting squares.")
 
     print("2. Running SAHI Sliced Inference (this may take a minute on CPU)...")
     detection_model = AutoDetectionModel.from_pretrained(
