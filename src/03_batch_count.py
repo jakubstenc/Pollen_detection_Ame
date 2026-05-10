@@ -1,12 +1,27 @@
 import os
+import sys
 import argparse
 import glob
 import csv
-import cv2
-import numpy as np
-from sahi import AutoDetectionModel
-from sahi.predict import get_sliced_prediction
-from shapely.geometry import Polygon, Point
+
+try:
+    import cv2
+    import numpy as np
+    from sahi import AutoDetectionModel
+    from sahi.predict import get_sliced_prediction
+    from shapely.geometry import Polygon, Point
+except ModuleNotFoundError as e:
+    print("\n" + "="*80)
+    print("🚨 ERROR: YOU CLICKED THE 'PLAY/RUN' BUTTON IN YOUR CODE EDITOR! 🚨")
+    print("="*80)
+    print(f"Missing module: {e}")
+    print("\nYour code editor is ignoring our 'venv' virtual environment and using the system Python.")
+    print("PLEASE DO NOT CLICK THE PLAY BUTTON!")
+    print("\nInstead, open the Terminal window at the bottom of your screen and type exactly this:")
+    print("python src/03_batch_count.py")
+    print("="*80 + "\n")
+    sys.exit(1)
+
 from line_detector import detect_grid_squares
 
 def process_batch(image_dir, model_path, output_dir):

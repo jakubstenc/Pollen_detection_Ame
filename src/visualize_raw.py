@@ -1,10 +1,25 @@
 import os
+import sys
 import argparse
-import cv2
-import numpy as np
-from shapely.geometry import Point, Polygon
-from sahi import AutoDetectionModel
-from sahi.predict import get_sliced_prediction
+
+try:
+    import cv2
+    import numpy as np
+    from shapely.geometry import Point, Polygon
+    from sahi import AutoDetectionModel
+    from sahi.predict import get_sliced_prediction
+except ModuleNotFoundError as e:
+    print("\n" + "="*80)
+    print("🚨 ERROR: YOU CLICKED THE 'PLAY/RUN' BUTTON IN YOUR CODE EDITOR! 🚨")
+    print("="*80)
+    print(f"Missing module: {e}")
+    print("\nYour code editor is ignoring our 'venv' virtual environment and using the system Python.")
+    print("PLEASE DO NOT CLICK THE PLAY BUTTON!")
+    print("\nInstead, open the Terminal window at the bottom of your screen and type exactly this:")
+    print("python src/visualize_raw.py --image data/raw_images/your_image.jpg --model runs/pollen_nano_test-3/weights/best.pt")
+    print("="*80 + "\n")
+    sys.exit(1)
+    
 import importlib.util
 
 sys_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
