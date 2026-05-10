@@ -12,8 +12,8 @@ from line_detector import detect_grid_squares
 def process_batch(image_dir, model_path, output_dir):
     """
     Processes all high-resolution images in the directory.
-    Detects the Bürker grid, runs SAHI inference, applies the counting protocol,
-    saves visualized images, and exports a CSV report.
+    Detects the Bürker grid, runs SAHI inference, applies the counting protocol
+    across all 9 macro-squares, saves visualized images, and exports a CSV report.
     """
     os.makedirs(output_dir, exist_ok=True)
     csv_path = os.path.join(output_dir, "pollen_counts.csv")
@@ -39,19 +39,29 @@ def process_batch(image_dir, model_path, output_dir):
     )
     
     results_data = []
+    fieldnames_initialized = False
+    fieldnames = []
     
     for i, img_path in enumerate(image_paths):
         filename = os.path.basename(img_path)
         print(f"\n[{i+1}/{len(image_paths)}] Processing {filename}...")
         
         # 1. Grid Detection
-        print("   - Detecting perfectly aligned mathematical grid...")
+        print("   - Detecting perfectly aligned 9-square mathematical grid...")
         try:
-            grid_polygons = detect_grid_squares(img_path, debug=False)
-            print(f"   - Found {len(grid_polygons)} counting squares.")
+            macro_grids = detect_grid_squares(img_path, debug=False)
+            total_squares = sum(len(g) for g in macro_grids.values())
+            print(f"   - Found {total_squares} counting squares across {len(macro_grids)} macro-regions.")
         except Exception as e:
             print(f"   - Error detecting grid: {e}")
             continue
+            
+        # Initialize fieldnames if first successful image
+        if not fieldnames_initialized:
+            fieldnames = ["Filename", "Total_Counted_Pollen", "Average_Per_Square", "StdDev_Variability"]
+            fieldnames += [f"{label}_Count" for label in macro_grids.keys()]
+            fieldnames += ["Ignored_Pollen", "Total_Detections"]
+            fieldnames_initialized = True
             
         # 2. SAHI Inference
         print("   - Running Sliced Inference (this may take a minute)...")
@@ -66,9 +76,10 @@ def process_batch(image_dir, model_path, output_dir):
         )
         
         # 3. Protocol Enforcement
-        print("   - Applying Bürker counting rules...")
+        print("   - Applying Bürker counting rules across all 9 squares...")
         counted_pollen = []
         ignored_pollen = []
+        region_counts = {label: 0 for label in macro_grids.keys()}
         
         for prediction in result.object_prediction_list:
             bbox = prediction.bbox
@@ -80,28 +91,34 @@ def process_batch(image_dir, model_path, output_dir):
             pollen_poly = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
             
             is_counted = False
-            for grid_poly in grid_polygons:
-                if grid_poly.contains(pollen_center):
-                    # It's fully inside a square
-                    is_counted = True
-                    break
-                elif grid_poly.intersects(pollen_poly):
-                    # Intersects edge: Hemocytometer Rule
-                    coords = list(grid_poly.exterior.coords)
-                    top_line = Polygon([coords[0], coords[1], coords[1], coords[0]]).buffer(1)
-                    right_line = Polygon([coords[1], coords[2], coords[2], coords[1]]).buffer(1)
-                    bottom_line = Polygon([coords[2], coords[3], coords[3], coords[2]]).buffer(1)
-                    left_line = Polygon([coords[3], coords[0], coords[0], coords[3]]).buffer(1)
-                    
-                    if pollen_poly.intersects(bottom_line) or pollen_poly.intersects(left_line):
-                        is_counted = False
-                        break
-                    elif pollen_poly.intersects(top_line) or pollen_poly.intersects(right_line):
+            assigned_label = None
+            
+            for label, grid_polygons in macro_grids.items():
+                for grid_poly in grid_polygons:
+                    if grid_poly.contains(pollen_center):
                         is_counted = True
+                        assigned_label = label
                         break
+                    elif grid_poly.intersects(pollen_poly):
+                        coords = list(grid_poly.exterior.coords)
+                        top_line = Polygon([coords[0], coords[1], coords[1], coords[0]]).buffer(1)
+                        right_line = Polygon([coords[1], coords[2], coords[2], coords[1]]).buffer(1)
+                        bottom_line = Polygon([coords[2], coords[3], coords[3], coords[2]]).buffer(1)
+                        left_line = Polygon([coords[3], coords[0], coords[0], coords[3]]).buffer(1)
                         
-            if is_counted:
+                        if pollen_poly.intersects(bottom_line) or pollen_poly.intersects(left_line):
+                            is_counted = False
+                            break
+                        elif pollen_poly.intersects(top_line) or pollen_poly.intersects(right_line):
+                            is_counted = True
+                            assigned_label = label
+                            break
+                if assigned_label is not None:
+                    break
+                        
+            if is_counted and assigned_label is not None:
                 counted_pollen.append(prediction)
+                region_counts[assigned_label] += 1
             else:
                 ignored_pollen.append(prediction)
                 
@@ -110,10 +127,21 @@ def process_batch(image_dir, model_path, output_dir):
         img = cv2.imread(img_path)
         
         # Draw Blue Grid
-        for poly in grid_polygons:
-            pts = np.array(poly.exterior.coords, np.int32)
-            pts = pts.reshape((-1, 1, 2))
-            cv2.polylines(img, [pts], isClosed=True, color=(255, 0, 0), thickness=3)
+        for label, grid_polygons in macro_grids.items():
+            for poly in grid_polygons:
+                pts = np.array(poly.exterior.coords, np.int32)
+                pts = pts.reshape((-1, 1, 2))
+                cv2.polylines(img, [pts], isClosed=True, color=(255, 0, 0), thickness=2)
+                
+            # Draw Region Label roughly in center of macro square
+            if grid_polygons:
+                b = grid_polygons[0].bounds
+                # We know a macro square is 4x4 sub squares
+                # so the first sub-square is top-left
+                macro_x = b[0]
+                macro_y = b[1]
+                cv2.putText(img, label, (int(macro_x) + 20, int(macro_y) + 40), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 0, 0), 4)
             
         # Draw Pollen
         def draw_predictions(preds, color):
@@ -131,18 +159,25 @@ def process_batch(image_dir, model_path, output_dir):
         cv2.imwrite(out_path, img)
         
         print(f"   - Saved: {out_name}")
-        print(f"   - Pollen Counted: {len(counted_pollen)} | Ignored: {len(ignored_pollen)}")
+        print(f"   - Total Pollen Counted: {len(counted_pollen)} | Ignored: {len(ignored_pollen)}")
         
-        results_data.append({
+        counts_list = list(region_counts.values())
+        row_data = {
             "Filename": filename,
-            "Counted_Pollen": len(counted_pollen),
+            "Total_Counted_Pollen": sum(counts_list),
+            "Average_Per_Square": round(np.mean(counts_list), 2) if counts_list else 0,
+            "StdDev_Variability": round(np.std(counts_list), 2) if counts_list else 0,
             "Ignored_Pollen": len(ignored_pollen),
             "Total_Detections": len(counted_pollen) + len(ignored_pollen)
-        })
+        }
+        for label, count in region_counts.items():
+            row_data[f"{label}_Count"] = count
+            
+        results_data.append(row_data)
         
         # Save CSV progressively in case of crash
         with open(csv_path, mode='w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=["Filename", "Counted_Pollen", "Ignored_Pollen", "Total_Detections"])
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(results_data)
             

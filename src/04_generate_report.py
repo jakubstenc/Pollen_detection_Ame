@@ -63,9 +63,27 @@ def generate_report():
     if os.path.exists(csv_src):
         shutil.copy2(csv_src, os.path.join(assets_dir, csv_filename))
         md_content += f"\n## Automated Pollen Counting Results\n\n"
-        md_content += f"The Bürker grid has been automatically aligned and pollen counted according to the counting protocol.\n\n"
+        md_content += f"The Bürker grid has been automatically aligned and pollen counted according to the counting protocol across all 9 macro-squares.\n\n"
         md_content += f"**📥 [Download Raw Data CSV (pollen_counts.csv)](assets/{csv_filename})**\n\n"
         
+        # Read CSV and build a Markdown table
+        import csv
+        try:
+            with open(csv_src, 'r') as f:
+                reader = csv.reader(f)
+                headers = next(reader)
+                rows = list(reader)
+                
+            if headers and rows:
+                md_content += "### 9-Square Statistical Breakdown\n\n"
+                md_content += "|" + "|".join(headers) + "|\n"
+                md_content += "|" + "|".join(["---"] * len(headers)) + "|\n"
+                for row in rows:
+                    md_content += "|" + "|".join(row) + "|\n"
+                md_content += "\n"
+        except Exception as e:
+            print(f"Failed to generate markdown table from CSV: {e}")
+            
         # Add visual results gallery
         vis_images = glob.glob(os.path.join(results_dir, "visualized_*.JPG")) + glob.glob(os.path.join(results_dir, "visualized_*.jpg"))
         for vis_src in vis_images:

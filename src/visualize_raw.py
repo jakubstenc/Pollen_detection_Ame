@@ -20,10 +20,10 @@ def visualize_raw_image(image_path, model_path, output_dir):
     if img is None:
         raise ValueError(f"Could not read image: {image_path}")
         
-    print("1. Detecting counting grid on raw image...")
-    # The mathematical Phase-Locked loop guarantees perfect squares, so we don't need heavy area filtering.
-    grid_polygons = detect_grid_squares(image_path, min_square_area=1000, debug=False)
-    print(f"   Found {len(grid_polygons)} mathematically perfect grid counting squares.")
+    print("1. Detecting 9-square mathematical counting grid on raw image...")
+    macro_grids = detect_grid_squares(image_path, debug=False)
+    total_squares = sum(len(g) for g in macro_grids.values())
+    print(f"   Found {total_squares} counting squares across {len(macro_grids)} macro-regions.")
 
     print("2. Running SAHI Sliced Inference (this may take a minute on CPU)...")
     detection_model = AutoDetectionModel.from_pretrained(
@@ -46,9 +46,15 @@ def visualize_raw_image(image_path, model_path, output_dir):
     vis_img = img.copy()
     
     # Draw Grid (Thick Blue Lines)
-    for poly in grid_polygons:
-        pts = np.array(poly.exterior.coords, np.int32).reshape((-1, 1, 2))
-        cv2.polylines(vis_img, [pts], isClosed=True, color=(255, 0, 0), thickness=8)
+    for label, grid_polygons in macro_grids.items():
+        for poly in grid_polygons:
+            pts = np.array(poly.exterior.coords, np.int32).reshape((-1, 1, 2))
+            cv2.polylines(vis_img, [pts], isClosed=True, color=(255, 0, 0), thickness=8)
+            
+        if grid_polygons:
+            b = grid_polygons[0].bounds
+            cv2.putText(vis_img, label, (int(b[0]) + 40, int(b[1]) + 80), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 0), 8)
         
     counted = 0
     ignored = 0
@@ -74,26 +80,29 @@ def visualize_raw_image(image_path, model_path, output_dir):
         ])
         
         in_grid = False
-        for square in grid_polygons:
-            sq_minx, sq_miny, sq_maxx, sq_maxy = square.bounds
-            
-            # Define the 4 geometric edges of the counting square
-            top_edge = LineString([(sq_minx, sq_miny), (sq_maxx, sq_miny)])
-            bottom_edge = LineString([(sq_minx, sq_maxy), (sq_maxx, sq_maxy)])
-            left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
-            right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
-            
-            # Hemocytometer counting protocol:
-            counted_in_this_square = False
-            if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
-                counted_in_this_square = False  # Touching bottom/left -> DO NOT COUNT
-            elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
-                counted_in_this_square = True   # Touching top/right -> DO COUNT
-            elif square.contains(centroid):
-                counted_in_this_square = True   # Strictly inside -> DO COUNT
+        assigned_label = None
+        
+        for label, grid_polygons in macro_grids.items():
+            for square in grid_polygons:
+                sq_minx, sq_miny, sq_maxx, sq_maxy = square.bounds
+                top_edge = LineString([(sq_minx, sq_miny), (sq_maxx, sq_miny)])
+                bottom_edge = LineString([(sq_minx, sq_maxy), (sq_maxx, sq_maxy)])
+                left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
+                right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
                 
-            if counted_in_this_square:
-                in_grid = True
+                counted_in_this_square = False
+                if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
+                    counted_in_this_square = False
+                elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
+                    counted_in_this_square = True
+                elif square.contains(centroid):
+                    counted_in_this_square = True
+                    
+                if counted_in_this_square:
+                    in_grid = True
+                    assigned_label = label
+                    break
+            if assigned_label is not None:
                 break
                 
         # Color: Green if counted, Red if ignored
@@ -103,8 +112,6 @@ def visualize_raw_image(image_path, model_path, output_dir):
         
         # Draw Polygon Mask
         if mask is not None and mask.bool_mask is not None:
-            # SAHI mask.bool_mask is a 2D boolean array of the bounding box region or full image
-            # The easiest way to draw is using the mask overlay
             contours, _ = cv2.findContours(mask.bool_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(vis_img, contours, -1, color, 4)
             

@@ -21,25 +21,28 @@ except ModuleNotFoundError as e:
 
 from line_detector import detect_grid_squares
 
-# PIXEL_TO_UM_RATIO represents how many micrometers are in 1 pixel.
-PIXEL_TO_UM_RATIO = 1.0 
-
-def process_frame(frame, model, grid_polygons):
+def process_frame(frame, model, macro_grids):
     """
-    Runs YOLO inference on a single frame and applies the counting protocol.
-    Returns the annotated frame and the counts.
+    Runs YOLO inference on a single frame and applies the counting protocol
+    across all 9 macro squares.
     """
-    # 1. Run YOLO Instance Segmentation (Raw inference, no SAHI)
     results = model(frame, verbose=False)
     
     counted_pollen = []
     ignored_pollen = []
+    region_counts = {label: 0 for label in macro_grids.keys()}
     
     # Draw Grid
-    for poly in grid_polygons:
-        pts = np.array(poly.exterior.coords, np.int32)
-        pts = pts.reshape((-1, 1, 2))
-        cv2.polylines(frame, [pts], isClosed=True, color=(255, 0, 0), thickness=2)
+    for label, grid_polygons in macro_grids.items():
+        for poly in grid_polygons:
+            pts = np.array(poly.exterior.coords, np.int32)
+            pts = pts.reshape((-1, 1, 2))
+            cv2.polylines(frame, [pts], isClosed=True, color=(255, 0, 0), thickness=2)
+            
+        if grid_polygons:
+            b = grid_polygons[0].bounds
+            cv2.putText(frame, label, (int(b[0]) + 10, int(b[1]) + 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
         
     for result in results:
         if result.masks is None:
@@ -54,64 +57,60 @@ def process_frame(frame, model, grid_polygons):
             cx = minx + (maxx - minx) / 2
             cy = miny + (maxy - miny) / 2
             centroid = Point(cx, cy)
-            
-            pollen_box = Polygon([
-                (minx, miny),
-                (maxx, miny),
-                (maxx, maxy),
-                (minx, maxy)
-            ])
+            pollen_box = Polygon([(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)])
             
             is_counted = False
-            for square in grid_polygons:
-                sq_minx, sq_miny, sq_maxx, sq_maxy = square.bounds
-                
-                top_edge = LineString([(sq_minx, sq_miny), (sq_maxx, sq_miny)])
-                bottom_edge = LineString([(sq_minx, sq_maxy), (sq_maxx, sq_maxy)])
-                left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
-                right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
-                
-                # Hemocytometer logic
-                if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
-                    is_counted = False
-                    break
-                elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
-                    is_counted = True
-                    break
-                elif square.contains(centroid):
-                    is_counted = True
+            assigned_label = None
+            
+            for label, grid_polygons in macro_grids.items():
+                for square in grid_polygons:
+                    sq_minx, sq_miny, sq_maxx, sq_maxy = square.bounds
+                    top_edge = LineString([(sq_minx, sq_miny), (sq_maxx, sq_miny)])
+                    bottom_edge = LineString([(sq_minx, sq_maxy), (sq_maxx, sq_maxy)])
+                    left_edge = LineString([(sq_minx, sq_miny), (sq_minx, sq_maxy)])
+                    right_edge = LineString([(sq_maxx, sq_miny), (sq_maxx, sq_maxy)])
+                    
+                    if pollen_box.intersects(bottom_edge) or pollen_box.intersects(left_edge):
+                        is_counted = False
+                        break
+                    elif pollen_box.intersects(top_edge) or pollen_box.intersects(right_edge):
+                        is_counted = True
+                        assigned_label = label
+                        break
+                    elif square.contains(centroid):
+                        is_counted = True
+                        assigned_label = label
+                        break
+                        
+                if assigned_label is not None:
                     break
                     
-            if is_counted:
+            if is_counted and assigned_label:
                 counted_pollen.append((box, score.item()))
+                region_counts[assigned_label] += 1
             else:
                 ignored_pollen.append((box, score.item()))
                 
-    # Draw bounding boxes
     def draw_predictions(preds, color):
         for box, score in preds:
             minx, miny, maxx, maxy = box.xyxy[0].tolist()
             cv2.rectangle(frame, (int(minx), int(miny)), (int(maxx), int(maxy)), color, 2)
-            cv2.putText(frame, f"{score:.2f}", (int(minx), int(miny)-5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
-    draw_predictions(counted_pollen, (0, 255, 0)) # Green = Counted
-    draw_predictions(ignored_pollen, (0, 0, 255)) # Red = Ignored
+    draw_predictions(counted_pollen, (0, 255, 0)) # Green
+    draw_predictions(ignored_pollen, (0, 0, 255)) # Red
     
-    return frame, len(counted_pollen), len(ignored_pollen)
+    return frame, region_counts
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Live Real-Time Pollen Counter")
-    parser.add_argument("--camera", default="0", help="Camera index (e.g., 0) or RTSP stream URL")
+    parser = argparse.ArgumentParser(description="Live Real-Time Pollen Counter (9-Square)")
+    parser.add_argument("--camera", default="0", help="Camera index or RTSP stream URL")
     parser.add_argument("--model", required=True, help="Path to trained YOLO best.pt weights")
     args = parser.parse_args()
 
-    # Load YOLO Model
     print(f"Loading YOLO model from {args.model}...")
     model = YOLO(args.model)
     
-    # Initialize Camera
     cam_id = int(args.camera) if args.camera.isdigit() else args.camera
     print(f"Opening camera stream: {cam_id}...")
     cap = cv2.VideoCapture(cam_id)
@@ -126,7 +125,7 @@ def main():
     print(" Press 'g' to force re-detect the mathematical grid.")
     print("="*50 + "\n")
     
-    grid_polygons = []
+    macro_grids = {}
     frame_count = 0
     
     while True:
@@ -135,37 +134,37 @@ def main():
             print("Error: Could not read frame from camera.")
             break
             
-        # Detect grid automatically on the very first frame, or every 60 frames to track movement
-        if len(grid_polygons) == 0 or frame_count % 60 == 0:
+        if len(macro_grids) == 0 or frame_count % 60 == 0:
             try:
-                # The mathematical template matcher is fast, so we can run it dynamically
-                grid_polygons = detect_grid_squares(frame, debug=False)
+                macro_grids = detect_grid_squares(frame, debug=False)
             except Exception as e:
-                pass # If grid fails to detect (e.g. out of focus), keep the old one or empty list
+                pass
                 
-        # Run YOLO inference
         start_time = time.time()
-        annotated_frame, counted, ignored = process_frame(frame, model, grid_polygons)
+        annotated_frame, region_counts = process_frame(frame, model, macro_grids)
         fps = 1.0 / (time.time() - start_time)
         
-        # Add Overlay text
-        cv2.putText(annotated_frame, f"FPS: {fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(annotated_frame, f"Counted: {counted}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(annotated_frame, f"Ignored: {ignored}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        counts_list = list(region_counts.values()) if region_counts else []
+        total_counted = sum(counts_list)
+        avg = np.mean(counts_list) if counts_list else 0
+        std = np.std(counts_list) if counts_list else 0
         
-        # Resize window if frame is too huge (e.g. 5184x3456)
+        cv2.putText(annotated_frame, f"FPS: {fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(annotated_frame, f"Total Counted: {total_counted}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(annotated_frame, f"Avg/Sq: {avg:.1f}  StdDev: {std:.1f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+        
         display_frame = annotated_frame
         if annotated_frame.shape[1] > 1920:
             scale = 1920 / annotated_frame.shape[1]
             display_frame = cv2.resize(annotated_frame, None, fx=scale, fy=scale)
             
-        cv2.imshow("Live Pollen Counter (Press 'q' to quit, 'g' to redraw grid)", display_frame)
+        cv2.imshow("Live Pollen Counter (9-Square)", display_frame)
         
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         elif key == ord('g'):
-            grid_polygons = [] # Force redetect on next loop
+            macro_grids = {}
             
         frame_count += 1
 

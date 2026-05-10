@@ -97,33 +97,46 @@ def detect_grid_squares(image_source, min_square_area=1000, max_square_area=1000
 
     x_start, y_start, true_spacing = get_best_grid(x_hp, y_hp)
     
-    polygons = []
+    macro_grids = {}
     vis_img = img.copy() if debug else None
     
-    # We have 4 corners. 
-    # Top-Left: xi=0, yi=0
-    # Top-Right: xi=8, yi=0
-    # Bottom-Left: xi=0, yi=8
-    # Bottom-Right: xi=8, yi=8
+    # We have 9 macro squares (3x3 grid). 
+    # Col indices: Left=0, Center=4, Right=8
+    # Row indices: Top=0, Mid=4, Bottom=8
+    labels_x = {0: "L", 4: "C", 8: "R"}
+    labels_y = {0: "T", 4: "M", 8: "B"}
     
-    for corner_xi in [0, 8]:
-        for corner_yi in [0, 8]:
-            corner_x = x_start + corner_xi * true_spacing
-            corner_y = y_start + corner_yi * true_spacing
+    for xi, x_char in labels_x.items():
+        for yi, y_char in labels_y.items():
+            label = f"{y_char}{x_char}"
+            macro_x = x_start + xi * true_spacing
+            macro_y = y_start + yi * true_spacing
             
-            # Each corner has a 4x4 grid of counting squares
+            macro_grids[label] = []
+            
+            # Subdivide each macro square into a 4x4 grid of counting squares
             for i in range(4):
                 for j in range(4):
-                    sx1 = corner_x + i * true_spacing
-                    sx2 = corner_x + (i + 1) * true_spacing
-                    sy1 = corner_y + j * true_spacing
-                    sy2 = corner_y + (j + 1) * true_spacing
+                    sx1 = macro_x + i * true_spacing
+                    sx2 = macro_x + (i + 1) * true_spacing
+                    sy1 = macro_y + j * true_spacing
+                    sy2 = macro_y + (j + 1) * true_spacing
                     
                     poly = Polygon([(sx1, sy1), (sx2, sy1), (sx2, sy2), (sx1, sy2)])
-                    polygons.append(poly)
+                    macro_grids[label].append(poly)
                     
                     if debug:
-                        cv2.rectangle(vis_img, (int(sx1), int(sy1)), (int(sx2), int(sy2)), (255, 0, 0), 4)
+                        # Draw thin lines for the sub-grid
+                        cv2.rectangle(vis_img, (int(sx1), int(sy1)), (int(sx2), int(sy2)), (255, 0, 0), 2)
+            
+            if debug:
+                # Draw thick lines for the macro-square boundary
+                cv2.rectangle(vis_img, (int(macro_x), int(macro_y)), 
+                              (int(macro_x + 4*true_spacing), int(macro_y + 4*true_spacing)), 
+                              (0, 255, 0), 6)
+                # Label the macro square
+                cv2.putText(vis_img, label, (int(macro_x) + 10, int(macro_y) + 50), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4)
 
     if debug:
         if isinstance(image_source, str):
@@ -136,13 +149,14 @@ def detect_grid_squares(image_source, min_square_area=1000, max_square_area=1000
         cv2.imwrite(out_path, vis_img)
         print(f"Debug grid image saved to: {out_path}")
         
-    return polygons
+    return macro_grids
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
         img_path = sys.argv[1]
-        squares = detect_grid_squares(img_path, debug=True)
-        print(f"Found {len(squares)} counting squares in {img_path}")
+        macro_grids = detect_grid_squares(img_path, debug=True)
+        total_sq = sum(len(grid) for grid in macro_grids.values())
+        print(f"Found {total_sq} counting squares across {len(macro_grids)} macro-regions in {img_path}")
     else:
         print("Usage: python src/line_detector.py <image_path>")
