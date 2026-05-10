@@ -31,7 +31,8 @@ def generate_report():
     target_files = {
         "results.png": "Model Training Metrics",
         "confusion_matrix.png": "Confusion Matrix",
-        "val_batch0_pred.jpg": "Validation Predictions"
+        "train_batch0.jpg": "Ground Truth Training Data (What YOLO was taught)",
+        "val_batch0_pred.jpg": "Validation Predictions (What YOLO guessed)"
     }
     
     copied_files = []
