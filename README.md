@@ -11,5 +11,8 @@ This project aims to automatically count pollen grains on a Bürker chamber usin
 - `notebooks/`: Jupyter notebooks for experimentation.
 - `src/`: Python scripts.
 
-## Phase 1
+## Phase 1: Data Preparation
 Use `src/01_prepare_tiles.py` to slice raw high-resolution images into 640x640 tiles with 20% overlap, ready for annotation in Roboflow.
+
+## Phase 2: Model Training
+Use `src/02_train_yolo.py` to train the YOLOv8 Nano instance segmentation model on the exported dataset from Roboflow. It points to `data/dataset_yolo/data.yaml` by default.
