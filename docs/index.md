@@ -1,6 +1,6 @@
 # YOLOv8 Pollen Detection Model Performance
 
-**Last Updated:** 2026-05-10 20:50:08
+**Last Updated:** 2026-05-11 16:50:04
 
 **Training Images Used:** 19
 
@@ -37,13 +37,13 @@ The Bürker grid has been automatically aligned and pollen counted according to 
 |O.bi22_prov_dil1a10_2026_05_08_0015(1).JPG|593|65.89|13.41|85|56|55|88|65|60|76|62|46|788|1381|
 |O.bi22_prov_dil1a10_2026_05_08_0015(2).JPG|593|65.89|13.41|85|56|55|88|65|60|76|62|46|788|1381|
 |O.bi11_prov_dil1a10_2026_05_08_0014.JPG|729|81.0|7.57|81|85|70|75|71|82|92|92|81|1098|1827|
-|name_of_your_raw_image.JPG|279|31.0|5.94|38|37|26|34|27|22|24|33|38|266|545|
 |O.bi24_prov_dil1a10_2026_05_08_0016.JPG|605|67.22|9.55|71|70|54|76|76|48|63|75|72|892|1497|
 |O.bi24_prov_dil1a10_2026_05_08_0016(1).JPG|605|67.22|9.55|71|70|54|76|76|48|63|75|72|892|1497|
 |O.bi10_prov_dil1a10_2026_05_08_04_grid.JPG|230|25.56|4.11|27|32|27|19|31|22|21|25|26|256|486|
 |O.bi22_prov_dil1a10_2026_05_08_0015.JPG|593|65.89|13.41|85|56|55|88|65|60|76|62|46|788|1381|
 |O.bi18_prov_dil1a10_2026_05_08_0017.JPG|782|86.89|17.91|92|70|71|90|88|54|112|110|95|1181|1963|
 |O.bi6_scopa_2026_05_08_02.JPG|817|90.78|12.29|108|91|78|99|99|93|83|66|100|1138|1955|
+|O.bi5_scopa_2026_05_08_0003.JPG|418|46.44|7.04|57|49|54|52|38|45|46|43|34|768|1186|
 |O.bi10_prov_dil1a10_2026_05_08_04.JPG|279|31.0|5.94|38|37|26|34|27|22|24|33|38|266|545|
 |O.bi18_prov_dil1a10_2026_05_08_0017(1).JPG|782|86.89|17.91|92|70|71|90|88|54|112|110|95|1181|1963|
 
@@ -78,6 +78,9 @@ python src/live_counter.py --camera 0 --model runs/pollen_nano_test-3/weights/be
 
 ### visualized_O.bi10_prov_dil1a10_2026_05_08_04.JPG
 ![visualized_O.bi10_prov_dil1a10_2026_05_08_04.JPG](assets/visualized_O.bi10_prov_dil1a10_2026_05_08_04.JPG)
+
+### visualized_O.bi5_scopa_2026_05_08_0003.JPG
+![visualized_O.bi5_scopa_2026_05_08_0003.JPG](assets/visualized_O.bi5_scopa_2026_05_08_0003.JPG)
 
 ### visualized_O.bi22_prov_dil1a10_2026_05_08_0015.JPG
 ![visualized_O.bi22_prov_dil1a10_2026_05_08_0015.JPG](assets/visualized_O.bi22_prov_dil1a10_2026_05_08_0015.JPG)
